@@ -11,8 +11,10 @@ network issues or temporary LLM overload.
 """
 
 import time
+import traceback
 
 import instructor
+from instructor import Mode
 from openai import OpenAI
 
 from config import settings
@@ -21,21 +23,23 @@ from domain.tenant_schemas import TenantSector
 
 
 # ── Sector-specific aspect rules injected into every prompt ──────────
-# These guide the LLM toward aspects that are relevant per sector.
+# These are STRICT canonical categories. The LLM MUST NOT invent new ones.
 SECTOR_RULES: dict[TenantSector, list[str]] = {
     TenantSector.FINTECH: [
-        "transaction_fees",
-        "mobile_app_ux",
+        "transaction_speed",
+        "payment_gateway_reliability",
         "customer_support",
-        "security",
-        "interest_rates",
+        "onboarding",
+        "fees_and_charges",
+        "app_ux",
     ],
     TenantSector.ECOMMERCE: [
-        "shipping_speed",
+        "delivery_speed",
         "product_quality",
-        "returns_process",
-        "customer_service",
-        "pricing",
+        "packaging_integrity",
+        "customer_support",
+        "refunds_and_returns",
+        "app_ux",
     ],
 }
 
@@ -51,6 +55,8 @@ def _build_system_prompt(sector: TenantSector) -> str:
         f"You are an ABSA (Aspect-Based Sentiment Analysis) assistant. "
         f"Analyse the given review and extract sentiment for each relevant aspect. "
         f"For the {sector.value} sector, focus on aspects such as: {aspects}. "
+        f"You MUST categorize the aspect into one of these strict canonical categories "
+        f"based on the sector. DO NOT invent new categories. "
         f"Always respond with a valid JSON object that matches the required schema."
     )
 
@@ -80,7 +86,7 @@ class AbsaExtractor:
         # ── Patch with instructor for automatic schema validation ─────
         # This means we can pass our Pydantic model as `response_model`
         # and instructor will validate + retry the LLM response for us.
-        self.client = instructor.from_openai(raw_client)
+        self.client = instructor.from_openai(raw_client, mode=Mode.JSON)
 
     def extract_aspects(
         self,
@@ -108,7 +114,7 @@ class AbsaExtractor:
                 # Instructor will call the LLM and validate the response
                 # against the ExtractedReview schema automatically.
                 result: ExtractedReview = self.client.chat.completions.create(
-                    model="llama3.2",
+                    model="phi3",
                     response_model=ExtractedReview,
                     messages=[
                         {"role": "system", "content": system_prompt},
@@ -118,6 +124,14 @@ class AbsaExtractor:
                 return result
 
             except Exception:
+                # Write full diagnostic trace to a file for debugging.
+                with open("diagnostic_trace.txt", "w", encoding="utf-8") as f:
+                    f.write("=== EXCEPTION TRACE ===\n")
+                    f.write(traceback.format_exc())
+                    f.write("\n\n=== RAW TEXT PAYLOAD ===\n")
+                    f.write(text)
+                    f.write("\n\n=== TENANT CONTEXT ===\n")
+                    f.write(f"tenant_id={tenant_id}, sector={tenant_sector.value}\n")
                 if attempt < _MAX_RETRIES:
                     # Exponential backoff: wait 1s, 2s, 4s before retrying.
                     delay = _BASE_DELAY_S * (2 ** (attempt - 1))

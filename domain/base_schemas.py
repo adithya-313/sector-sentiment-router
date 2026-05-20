@@ -19,7 +19,14 @@ class AspectSentiment(BaseModel):
     # The feature being discussed, e.g. "battery_life", "customer_service".
     aspect: str = Field(
         ...,
-        description="The product or service aspect being evaluated.",
+        description=(
+            "The product or service aspect being evaluated. "
+            "Must be one of the strict canonical categories for the sector: "
+            "FINTECH: transaction_speed, payment_gateway_reliability, "
+            "customer_support, onboarding, fees_and_charges, app_ux. "
+            "ECOMMERCE: delivery_speed, product_quality, packaging_integrity, "
+            "customer_support, refunds_and_returns, app_ux."
+        ),
         min_length=1,
     )
 

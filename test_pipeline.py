@@ -26,9 +26,7 @@ import httpx  # noqa: E402
 from domain.tenant_schemas import TenantSector  # noqa: E402
 
 # ── Configuration ─────────────────────────────────────────────────────
-HOST = "127.0.0.1"
-PORT = 18999
-BASE_URL = f"http://{HOST}:{PORT}"
+BASE_URL = "http://127.0.0.1:9455"
 ANALYZE_URL = f"{BASE_URL}/api/v1/analyze"
 
 # ── Test data mimicking real-world reviews ────────────────────────────
@@ -107,9 +105,9 @@ def main() -> None:
             "uvicorn",
             "main:app",
             "--host",
-            HOST,
+            "127.0.0.1",
             "--port",
-            str(PORT),
+            "9455",
         ],
         cwd=PROJECT_ROOT,
         stdout=subprocess.DEVNULL,
@@ -125,7 +123,7 @@ def main() -> None:
 
     try:
         # 2. Verify the server is alive.
-        health_resp = httpx.get(f"{BASE_URL}/health", timeout=10)
+        health_resp = httpx.get(f"{BASE_URL}/health", timeout=30)
         health_resp.raise_for_status()
         print("[PASS] Server is healthy.\n")
 
@@ -134,7 +132,7 @@ def main() -> None:
             resp = httpx.post(
                 ANALYZE_URL,
                 json=review,
-                timeout=30,
+                timeout=300,
             )
             resp.raise_for_status()
             body = resp.json()
@@ -152,7 +150,7 @@ def main() -> None:
             print(f"\n  Sector: {sector.value.upper()}")
             resp = httpx.get(
                 f"{BASE_URL}/api/v1/summary/{sector.value}",
-                timeout=10,
+                timeout=30,
             )
             resp.raise_for_status()
             _print_table(resp.json())

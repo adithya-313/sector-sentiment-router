@@ -1,20 +1,8 @@
-# Python
 __pycache__/
-*.py[cod]
-*.egg-info/
-
-# Database files
-*.db
-*.db.wal
-*.db-shm
-
-# Virtual environments
-.venv/
+*.pyc
+.env
+venv/
 env/
-
-# Logs
-*.txt
-
-# OS
-.DS_Store
-Thumbs.db
+*.db
+*.duckdb
+*.duckdb.wal
